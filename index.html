@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>図書室 貸出状況</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="theme-color" content="#1F2937" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div>
+      <div class="eyebrow">学校図書室</div>
+      <div class="title">貸出状況</div>
+    </div>
+    <div class="badge">📖</div>
+  </div>
+
+  <div class="save-error" id="saveError">保存に失敗しました。もう一度お試しください。</div>
+
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="タイトル・著者・ジャンルで検索" />
+    <button id="clearSearchBtn" class="clear-btn" style="display:none;">✕</button>
+  </div>
+
+  <div id="listArea"></div>
+
+  <div class="add-form" id="addForm">
+    <div class="form-header">
+      <div class="form-title">本をカタログに追加</div>
+      <button id="closeAddFormBtn">✕</button>
+    </div>
+    <input type="text" id="newTitle" placeholder="タイトル" />
+    <input type="text" id="newAuthor" placeholder="著者" />
+    <input type="text" id="newGenre" placeholder="ジャンル(例: 文学、科学)" />
+    <button class="submit-btn" id="addBookBtn">追加する</button>
+  </div>
+  <button class="add-toggle" id="openAddFormBtn">＋ 本を追加</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
