@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>図書室 貸出状況</title>
+<title>図書室 蔵書検索</title>
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
@@ -15,7 +15,7 @@
   <div class="header">
     <div>
       <div class="eyebrow">学校図書室</div>
-      <div class="title">貸出状況</div>
+      <div class="title">本をさがす</div>
     </div>
     <div class="badge">📖</div>
   </div>
@@ -28,7 +28,9 @@
     <button id="clearSearchBtn" class="clear-btn" style="display:none;">✕</button>
   </div>
 
-  <div class="list-heading" id="listHeading">現在貸出中の本</div>
+  <div class="ndc-grid" id="ndcGrid"></div>
+
+  <div class="list-heading" id="listHeading" style="display:none;"></div>
   <div id="listArea"></div>
 
   <div class="add-form" id="addForm">
@@ -39,6 +41,7 @@
     <input type="text" id="newTitle" placeholder="タイトル" />
     <input type="text" id="newAuthor" placeholder="著者" />
     <input type="text" id="newGenre" placeholder="ジャンル(例: 文学、科学)" />
+    <input type="text" id="newNdc" placeholder="NDC分類番号(わかれば。例: 913)" />
     <button class="submit-btn" id="addBookBtn">追加する</button>
   </div>
   <button class="add-toggle" id="openAddFormBtn">＋ 本を追加</button>
