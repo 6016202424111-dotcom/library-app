@@ -1,0 +1,81 @@
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #FAF6EC;
+  color: #1B2430;
+  font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+#app { max-width: 480px; margin: 0 auto; padding: 28px 18px 60px; }
+
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.eyebrow { font-size: 13px; color: #8A7B5C; margin-bottom: 2px; }
+.title { font-size: 26px; font-weight: 700; }
+.badge {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: #4A7C7C; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 0 #2F5750; font-size: 20px;
+}
+
+.save-error {
+  background: #FBE3DC; border: 1px solid #E4572E; color: #A3341B;
+  font-size: 13px; padding: 10px 12px; border-radius: 10px; margin-bottom: 16px; display: none;
+}
+
+.search-box {
+  display: flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid #EDE3C8; border-radius: 12px;
+  padding: 10px 12px; margin-bottom: 18px;
+}
+.search-icon { font-size: 14px; }
+#searchInput { border: none; outline: none; flex: 1; font-size: 14px; background: transparent; font-family: inherit; }
+.clear-btn { border: none; background: none; cursor: pointer; color: #8A7B5C; font-size: 14px; }
+
+.empty { text-align: center; color: #8A7B5C; padding: 24px 0; font-size: 14px; }
+
+.book-card { background: #fff; border: 1px solid #EDE3C8; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+.book-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.book-title { font-size: 15px; font-weight: 700; }
+.book-meta { font-size: 12.5px; color: #8A7B5C; margin-top: 2px; }
+
+.status-pill { font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+.status-available { background: #E4F1EC; color: #2F6B52; }
+.status-borrowed { background: #FBF1DD; color: #9C7A1F; }
+.status-overdue { background: #FBE3DC; color: #A3341B; }
+
+.due-date { font-size: 12px; color: #8A7B5C; margin-top: 8px; }
+
+.action-row { margin-top: 10px; }
+.borrow-btn {
+  width: 100%; background: #E8A33D; color: #1B2430; border: none; border-radius: 8px;
+  padding: 9px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.return-btn {
+  width: 100%; background: none; border: 1.5px solid #4A7C7C; color: #4A7C7C; border-radius: 8px;
+  padding: 9px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.confirm-row { display: flex; gap: 8px; align-items: center; }
+.confirm-row input[type="date"] {
+  flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #E4D9BF; font-size: 13px; font-family: inherit;
+}
+.confirm-btn { background: #1F2937; color: #FAF6EC; border: none; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+.add-toggle {
+  margin-top: 8px; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px dashed #C9BE9E;
+  background: transparent; color: #8A7B5C; font-weight: 700; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+}
+.add-toggle.hidden { display: none; }
+
+.add-form { background: #fff; border: 1px solid #EDE3C8; border-radius: 14px; padding: 16px; margin-top: 8px; display: none; }
+.add-form.open { display: block; }
+.form-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.form-title { font-weight: 700; font-size: 15px; }
+.form-header button { border: none; background: none; cursor: pointer; color: #8A7B5C; font-size: 16px; }
+.add-form input[type="text"] {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid #E4D9BF;
+  margin-bottom: 10px; font-size: 14px; font-family: inherit;
+}
+.submit-btn {
+  width: 100%; padding: 12px; border-radius: 10px; border: none; background: #1F2937; color: #FAF6EC;
+  font-weight: 700; font-size: 14px; cursor: pointer;
+}
