@@ -108,6 +108,7 @@ function render() {
       </div>
       ${b.status === 'borrowed' && b.dueDate ? `<div class="due-date">返却予定日: ${b.dueDate}</div>` : ''}
       <div class="action-row">${actionHtml}</div>
+      <button class="delete-btn">🗑 この本を削除</button>
     `;
 
     const borrowBtn = card.querySelector('.borrow-btn');
@@ -140,6 +141,23 @@ function render() {
           hideError();
         } catch (e) {
           showError('保存に失敗しました。もう一度お試しください。');
+        }
+        await loadBooks();
+      });
+    }
+
+    const deleteBtn = card.querySelector('.delete-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async () => {
+        const ok = window.confirm(`「${b.title}」を削除します。よろしいですか？`);
+        if (!ok) return;
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = '削除中…';
+        try {
+          await callApi({ action: 'delete', id: b.id });
+          hideError();
+        } catch (e) {
+          showError('削除に失敗しました。もう一度お試しください。');
         }
         await loadBooks();
       });
