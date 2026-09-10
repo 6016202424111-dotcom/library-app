@@ -3,6 +3,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxSplON-1eRjJJv2fPYtaOJ
 let books = [];
 let query = '';
 let borrowingId = null;
+let searchTimer = null;
 
 function todayStr() {
   const d = new Date();
@@ -29,13 +30,16 @@ function hideError() {
 }
 
 async function loadBooks() {
+  document.getElementById('listArea').innerHTML = '<div class="empty">読み込み中…</div>';
   try {
-    const res = await fetch(API_URL);
+    const url = query.trim() ? `${API_URL}?q=${encodeURIComponent(query.trim())}` : API_URL;
+    const res = await fetch(url);
     const data = await res.json();
     books = Array.isArray(data) ? data : [];
     hideError();
   } catch (e) {
     showError('データの取得に失敗しました。通信環境を確認してください。');
+    books = [];
   }
   render();
 }
@@ -49,29 +53,24 @@ async function callApi(payload) {
   return res.json();
 }
 
-function filteredBooks() {
-  const q = query.trim().toLowerCase();
-  if (!q) return books;
-  return books.filter(
-    (b) =>
-      String(b.title || '').toLowerCase().includes(q) ||
-      String(b.author || '').toLowerCase().includes(q) ||
-      String(b.genre || '').toLowerCase().includes(q)
-  );
-}
-
 function render() {
   const area = document.getElementById('listArea');
   area.innerHTML = '';
-  const list = filteredBooks();
   const today = todayStr();
+  const heading = document.getElementById('listHeading');
 
-  if (list.length === 0) {
-    area.innerHTML = '<div class="empty">該当する本が見つかりません。</div>';
+  if (query.trim()) {
+    heading.textContent = `「${query.trim()}」の検索結果`;
+  } else {
+    heading.textContent = '現在貸出中の本';
+  }
+
+  if (books.length === 0) {
+    area.innerHTML = `<div class="empty">${query.trim() ? '該当する本が見つかりません。' : '現在、貸出中の本はありません。'}</div>`;
     return;
   }
 
-  list.forEach((b) => {
+  books.forEach((b) => {
     const overdue = b.status === 'borrowed' && b.dueDate && b.dueDate < today;
     const card = document.createElement('div');
     card.className = 'book-card';
@@ -170,13 +169,14 @@ function render() {
 document.getElementById('searchInput').addEventListener('input', (e) => {
   query = e.target.value;
   document.getElementById('clearSearchBtn').style.display = query ? 'inline' : 'none';
-  render();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { loadBooks(); }, 400);
 });
 document.getElementById('clearSearchBtn').addEventListener('click', () => {
   query = '';
   document.getElementById('searchInput').value = '';
   document.getElementById('clearSearchBtn').style.display = 'none';
-  render();
+  loadBooks();
 });
 
 document.getElementById('openAddFormBtn').addEventListener('click', () => {
@@ -217,5 +217,4 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-document.getElementById('listArea').innerHTML = '<div class="empty">読み込み中…</div>';
 loadBooks();
