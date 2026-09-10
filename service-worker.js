@@ -1,4 +1,4 @@
-const CACHE_NAME = 'library-app-v1';
+const CACHE_NAME = 'library-app-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -22,5 +22,13 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  const isSameOrigin = url.origin === self.location.origin;
+
+  if (!isSameOrigin) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
 });
