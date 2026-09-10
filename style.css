@@ -31,6 +31,7 @@ html, body {
 .clear-btn { border: none; background: none; cursor: pointer; color: #8A7B5C; font-size: 14px; }
 
 .empty { text-align: center; color: #8A7B5C; padding: 24px 0; font-size: 14px; }
+.list-heading { font-size: 13px; font-weight: 700; color: #8A7B5C; margin-bottom: 10px; }
 
 .book-card { background: #fff; border: 1px solid #EDE3C8; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
 .book-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
