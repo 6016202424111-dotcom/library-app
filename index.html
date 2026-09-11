@@ -20,20 +20,7 @@
       <div class="eyebrow">SCHOOL LIBRARY</div>
       <div class="title">本をさがす</div>
     </div>
-    <div class="badge" id="settingsBtn" title="見た目の設定">🎨</div>
-  </div>
-
-  <div class="settings-panel" id="settingsPanel">
-    <div class="settings-title">背景をカスタマイズ(この端末だけの設定です)</div>
-    <div class="color-swatches" id="colorSwatches"></div>
-    <label class="upload-label">
-      画像を背景にする
-      <input type="file" id="bgImageInput" accept="image/*" />
-    </label>
-    <div class="settings-row">
-      <button id="resetBgBtn" class="cancel-btn">元に戻す</button>
-      <button id="closeSettingsBtn" class="cancel-btn">閉じる</button>
-    </div>
+    <div class="badge">📖</div>
   </div>
 
   <div class="save-error" id="saveError">保存に失敗しました。もう一度お試しください。</div>
@@ -74,6 +61,20 @@
       <button class="submit-btn" id="addBookBtn">追加する</button>
     </div>
     <button class="add-toggle" id="openAddFormBtn">＋ 本を追加</button>
+
+    <button class="add-toggle bg-toggle" id="settingsBtn">🎨 背景をカスタマイズする</button>
+    <div class="settings-panel" id="settingsPanel">
+      <div class="settings-title">背景をカスタマイズ(この端末だけの設定です)</div>
+      <div class="color-swatches" id="colorSwatches"></div>
+      <label class="upload-label">
+        画像を背景にする
+        <input type="file" id="bgImageInput" accept="image/*" />
+      </label>
+      <div class="settings-row">
+        <button id="resetBgBtn" class="cancel-btn">元に戻す</button>
+        <button id="closeSettingsBtn" class="cancel-btn">閉じる</button>
+      </div>
+    </div>
   </div>
 </div>
 
