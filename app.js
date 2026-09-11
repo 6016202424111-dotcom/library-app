@@ -267,26 +267,7 @@ function render() {
         </div>
         ${b.ndc ? `<span class="ndc-pill">${escapeHtml(String(b.ndc))}</span>` : ''}
       </div>
-      <button class="delete-btn">🗑 この本を削除</button>
     `;
-    card.querySelector('.delete-btn').addEventListener('click', async () => {
-      const ok = window.confirm(`「${b.title}」を削除します。よろしいですか？`);
-      if (!ok) return;
-      const pin = askPin();
-      if (!pin) return;
-      try {
-        const result = await callApi({ action: 'delete', id: b.id, pin });
-        if (result && result.error === 'invalid_pin') {
-          sessionPin = null;
-          showError('合言葉が違います。もう一度お試しください。');
-        } else {
-          hideError();
-        }
-      } catch (e) {
-        showError('削除に失敗しました。もう一度お試しください。');
-      }
-      await loadBooks();
-    });
     area.appendChild(card);
   });
 }
