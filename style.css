@@ -101,7 +101,14 @@ html, body {
 .book-meta { font-size: 12.5px; color: #8A7B5C; margin-top: 2px; }
 .ndc-pill { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #E4F1EC; color: #2F6B52; white-space: nowrap; }
 
-.delete-btn { width: 100%; margin-top: 10px; background: none; border: none; color: #B0745B; font-size: 12px; padding: 6px; cursor: pointer; text-align: center; }
+.card-actions { display: flex; gap: 8px; margin-top: 10px; }
+.fav-btn, .like-btn {
+  flex: 1; border: 1px solid #E4D9BF; background: #fff; border-radius: 8px;
+  padding: 8px; font-size: 12.5px; cursor: pointer; font-family: inherit; color: #5C5140;
+}
+.fav-btn.active { border-color: #E4572E; color: #A3341B; background: #FBE3DC; }
+.like-btn:disabled { opacity: 0.6; }
+.like-count { font-weight: 700; }
 
 .add-toggle {
   margin-top: 8px; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px dashed #C9BE9E;
@@ -111,15 +118,6 @@ html, body {
 .add-toggle.hidden { display: none; }
 .bg-toggle { margin-top: 20px; }
 
-.add-form { background: #fff; border: 1px solid #EDE3C8; border-radius: 14px; padding: 16px; margin-top: 8px; display: none; }
-.add-form.open { display: block; }
-.form-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-.form-title { font-weight: 700; font-size: 15px; }
-.form-header button { border: none; background: none; cursor: pointer; color: #8A7B5C; font-size: 16px; }
-.add-form input[type="text"] {
-  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid #E4D9BF;
-  margin-bottom: 10px; font-size: 14px; font-family: inherit;
-}
 .submit-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #1F2937; color: #FAF6EC; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
 
 @media (min-width: 900px) {
