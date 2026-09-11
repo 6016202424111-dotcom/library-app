@@ -24,7 +24,7 @@ html, body {
 
 .settings-panel {
   display: none; background: #fff; border: 1px solid #EDE3C8; border-radius: 14px;
-  padding: 16px; margin: 0 0 18px;
+  padding: 16px; margin: 10px 0 0;
 }
 .settings-panel.open { display: block; }
 .settings-title { font-size: 13px; font-weight: 700; color: #8A7B5C; margin-bottom: 12px; }
@@ -109,6 +109,7 @@ html, body {
   display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-family: inherit;
 }
 .add-toggle.hidden { display: none; }
+.bg-toggle { margin-top: 20px; }
 
 .add-form { background: #fff; border: 1px solid #EDE3C8; border-radius: 14px; padding: 16px; margin-top: 8px; display: none; }
 .add-form.open { display: block; }
