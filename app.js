@@ -1,12 +1,20 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbxSplON-1eRjJJv2fPYtaOJAdSdFQSN5DN749QZAh2BijkYKbpwK1nO2edMtktDX5U/exec';
 
-const NDC_LABELS = {
-  '0': '総記', '1': '哲学', '2': '歴史', '3': '社会科学', '4': '自然科学',
-  '5': '技術・工学', '6': '産業', '7': '芸術', '8': '言語', '9': '文学',
-};
+const NDC = [
+  { n: '0', label: '総記', emoji: '📚' },
+  { n: '1', label: '哲学', emoji: '🧠' },
+  { n: '2', label: '歴史', emoji: '🏛️' },
+  { n: '3', label: '社会科学', emoji: '⚖️' },
+  { n: '4', label: '自然科学', emoji: '🔬' },
+  { n: '5', label: '技術・工学', emoji: '⚙️' },
+  { n: '6', label: '産業', emoji: '🏭' },
+  { n: '7', label: '芸術', emoji: '🎨' },
+  { n: '8', label: '言語', emoji: '🗣️' },
+  { n: '9', label: '文学', emoji: '✒️' },
+];
 
 let books = [];
-let mode = 'home'; // 'home' | 'search' | 'category'
+let mode = 'home';
 let query = '';
 let activeCat = '';
 let searchTimer = null;
@@ -25,17 +33,88 @@ function showError(msg) {
 function hideError() {
   document.getElementById('saveError').style.display = 'none';
 }
+function askPin() {
+  if (sessionPin) return sessionPin;
+  const p = window.prompt('合言葉(PIN)を入力してください');
+  sessionPin = p;
+  return p;
+}
+async function callApi(payload) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  });
+  return res.json();
+}
+
+async function loadAnnouncements() {
+  try {
+    const res = await fetch(`${API_URL}?ann=1`, { cache: 'no-store' });
+    const data = await res.json();
+    renderAnnouncements(Array.isArray(data) ? data : []);
+  } catch (e) {}
+}
+function renderAnnouncements(list) {
+  const area = document.getElementById('announceArea');
+  area.innerHTML = '';
+  list.forEach((a) => {
+    const card = document.createElement('div');
+    card.className = 'announce-card';
+    card.innerHTML = `
+      <div class="a-text">${escapeHtml(String(a.text || ''))}</div>
+      <div class="a-meta">
+        <span class="a-date">${escapeHtml(String(a.postedAt || ''))}</span>
+        <button class="a-delete">削除</button>
+      </div>
+    `;
+    card.querySelector('.a-delete').addEventListener('click', async () => {
+      const pin = askPin();
+      if (!pin) return;
+      const result = await callApi({ action: 'deleteAnnouncement', id: a.id, pin });
+      if (result && result.error === 'invalid_pin') {
+        sessionPin = null;
+        showError('合言葉が違います。');
+      }
+      loadAnnouncements();
+    });
+    area.appendChild(card);
+  });
+}
+document.getElementById('openAnnounceFormBtn').addEventListener('click', () => {
+  document.getElementById('announceForm').classList.add('open');
+});
+document.getElementById('closeAnnounceFormBtn').addEventListener('click', () => {
+  document.getElementById('announceForm').classList.remove('open');
+});
+document.getElementById('postAnnounceBtn').addEventListener('click', async () => {
+  const text = document.getElementById('announceText').value.trim();
+  if (!text) return;
+  const pin = askPin();
+  if (!pin) return;
+  const result = await callApi({ action: 'addAnnouncement', text, pin });
+  if (result && result.error === 'invalid_pin') {
+    sessionPin = null;
+    showError('合言葉が違います。');
+    return;
+  }
+  hideError();
+  document.getElementById('announceText').value = '';
+  document.getElementById('announceForm').classList.remove('open');
+  loadAnnouncements();
+});
 
 function renderNdcGrid() {
   const grid = document.getElementById('ndcGrid');
   grid.innerHTML = '';
-  Object.keys(NDC_LABELS).forEach((num) => {
+  NDC.forEach((c) => {
     const btn = document.createElement('button');
-    btn.className = 'ndc-btn' + (mode === 'category' && activeCat === num ? ' active' : '');
-    btn.innerHTML = `<span class="num">${num}類</span><span class="label">${NDC_LABELS[num]}</span>`;
+    btn.className = 'ndc-btn' + (mode === 'category' && activeCat === c.n ? ' active' : '');
+    btn.innerHTML = `<span class="emoji">${c.emoji}</span><span><span class="num">${c.n}類</span><span class="label">${c.label}</span></span>`;
     btn.addEventListener('click', () => {
       mode = 'category';
-      activeCat = num;
+      activeCat = c.n;
       query = '';
       document.getElementById('searchInput').value = '';
       document.getElementById('clearSearchBtn').style.display = 'none';
@@ -62,12 +141,9 @@ async function loadBooks() {
   document.getElementById('listArea').innerHTML = '<div class="empty">読み込み中…</div>';
 
   try {
-    let url;
-    if (mode === 'search') {
-      url = `${API_URL}?q=${encodeURIComponent(query.trim())}`;
-    } else {
-      url = `${API_URL}?cat=${encodeURIComponent(activeCat)}`;
-    }
+    const url = mode === 'search'
+      ? `${API_URL}?q=${encodeURIComponent(query.trim())}`
+      : `${API_URL}?cat=${encodeURIComponent(activeCat)}`;
     const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
     books = Array.isArray(data) ? data : [];
@@ -79,28 +155,12 @@ async function loadBooks() {
   render();
 }
 
-async function callApi(payload) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-    cache: 'no-store',
-  });
-  return res.json();
-}
-
-function askPin() {
-  if (sessionPin) return sessionPin;
-  const p = window.prompt('合言葉(PIN)を入力してください');
-  sessionPin = p;
-  return p;
-}
-
 function render() {
   const area = document.getElementById('listArea');
   const heading = document.getElementById('listHeading');
   area.innerHTML = '';
 
+  const NDC_LABELS = Object.fromEntries(NDC.map((c) => [c.n, c.label]));
   const backLink = `<span class="back-link" id="backToHome">← 分類にもどる</span>`;
   if (mode === 'search') {
     heading.innerHTML = `<span>「${escapeHtml(query.trim())}」の検索結果</span>${backLink}`;
@@ -108,13 +168,7 @@ function render() {
     heading.innerHTML = `<span>${activeCat}類: ${NDC_LABELS[activeCat]}</span>${backLink}`;
   }
   const back = document.getElementById('backToHome');
-  if (back) {
-    back.addEventListener('click', () => {
-      mode = 'home';
-      activeCat = '';
-      loadBooks();
-    });
-  }
+  if (back) back.addEventListener('click', () => { mode = 'home'; activeCat = ''; loadBooks(); });
 
   if (books.length === 0) {
     area.innerHTML = '<div class="empty">該当する本が見つかりません。</div>';
@@ -134,15 +188,11 @@ function render() {
       </div>
       <button class="delete-btn">🗑 この本を削除</button>
     `;
-
-    const deleteBtn = card.querySelector('.delete-btn');
-    deleteBtn.addEventListener('click', async () => {
+    card.querySelector('.delete-btn').addEventListener('click', async () => {
       const ok = window.confirm(`「${b.title}」を削除します。よろしいですか？`);
       if (!ok) return;
       const pin = askPin();
       if (!pin) return;
-      deleteBtn.disabled = true;
-      deleteBtn.textContent = '削除中…';
       try {
         const result = await callApi({ action: 'delete', id: b.id, pin });
         if (result && result.error === 'invalid_pin') {
@@ -156,7 +206,6 @@ function render() {
       }
       await loadBooks();
     });
-
     area.appendChild(card);
   });
 }
@@ -166,13 +215,8 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
   document.getElementById('clearSearchBtn').style.display = query ? 'inline' : 'none';
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
-    if (query.trim()) {
-      mode = 'search';
-      loadBooks();
-    } else {
-      mode = 'home';
-      loadBooks();
-    }
+    mode = query.trim() ? 'search' : 'home';
+    loadBooks();
   }, 400);
 });
 document.getElementById('clearSearchBtn').addEventListener('click', () => {
@@ -197,10 +241,8 @@ document.getElementById('addBookBtn').addEventListener('click', async () => {
   const genre = document.getElementById('newGenre').value.trim() || 'その他';
   const ndc = document.getElementById('newNdc').value.trim();
   if (!title) return;
-
   const pin = askPin();
   if (!pin) return;
-
   const btn = document.getElementById('addBookBtn');
   btn.disabled = true;
   btn.textContent = '追加中…';
@@ -232,4 +274,5 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+loadAnnouncements();
 loadBooks();
