@@ -20,6 +20,75 @@ let activeCat = '';
 let searchTimer = null;
 let sessionPin = null;
 
+// ---- 背景カスタマイズ(この端末だけのローカル設定) ----
+const BG_KEY = 'library-app-bg';
+const BG_COLORS = ['#F5EFE0', '#E9F1EE', '#FDEBE3', '#EAEFF7', '#F3E9F5', '#1B2430'];
+
+function applyBackground(pref) {
+  if (!pref) {
+    document.body.style.background = '';
+    document.body.style.backgroundImage = '';
+    return;
+  }
+  if (pref.type === 'color') {
+    document.body.style.backgroundImage = '';
+    document.body.style.background = pref.value;
+  } else if (pref.type === 'image') {
+    document.body.style.backgroundImage = `url(${pref.value})`;
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
+    document.body.style.backgroundAttachment = 'fixed';
+  }
+}
+function loadBackground() {
+  try {
+    const raw = localStorage.getItem(BG_KEY);
+    if (raw) applyBackground(JSON.parse(raw));
+  } catch (e) {}
+}
+function saveBackground(pref) {
+  try {
+    localStorage.setItem(BG_KEY, JSON.stringify(pref));
+  } catch (e) {
+    showError('背景の保存に失敗しました(容量オーバーの可能性があります)。');
+  }
+  applyBackground(pref);
+}
+function renderSwatches() {
+  const wrap = document.getElementById('colorSwatches');
+  wrap.innerHTML = '';
+  BG_COLORS.forEach((c) => {
+    const s = document.createElement('div');
+    s.className = 'swatch';
+    s.style.background = c;
+    s.addEventListener('click', () => saveBackground({ type: 'color', value: c }));
+    wrap.appendChild(s);
+  });
+}
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  document.getElementById('settingsPanel').classList.toggle('open');
+});
+document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+  document.getElementById('settingsPanel').classList.remove('open');
+});
+document.getElementById('resetBgBtn').addEventListener('click', () => {
+  localStorage.removeItem(BG_KEY);
+  applyBackground(null);
+});
+document.getElementById('bgImageInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    window.alert('画像サイズが大きすぎます(2MB以下にしてください)。');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => saveBackground({ type: 'image', value: reader.result });
+  reader.readAsDataURL(file);
+});
+renderSwatches();
+loadBackground();
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -49,12 +118,15 @@ async function callApi(payload) {
   return res.json();
 }
 
+// ---- お知らせ ----
 async function loadAnnouncements() {
   try {
     const res = await fetch(`${API_URL}?ann=1`, { cache: 'no-store' });
     const data = await res.json();
     renderAnnouncements(Array.isArray(data) ? data : []);
-  } catch (e) {}
+  } catch (e) {
+    // お知らせ取得失敗は静かに無視(本の検索機能には影響させない)
+  }
 }
 function renderAnnouncements(list) {
   const area = document.getElementById('announceArea');
@@ -90,21 +162,29 @@ document.getElementById('closeAnnounceFormBtn').addEventListener('click', () => 
 });
 document.getElementById('postAnnounceBtn').addEventListener('click', async () => {
   const text = document.getElementById('announceText').value.trim();
-  if (!text) return;
-  const pin = askPin();
-  if (!pin) return;
-  const result = await callApi({ action: 'addAnnouncement', text, pin });
-  if (result && result.error === 'invalid_pin') {
-    sessionPin = null;
-    showError('合言葉が違います。');
+  if (!text) {
+    window.alert('お知らせの内容を入力してください。');
     return;
   }
-  hideError();
-  document.getElementById('announceText').value = '';
-  document.getElementById('announceForm').classList.remove('open');
-  loadAnnouncements();
+  const pin = askPin();
+  if (!pin) return;
+  try {
+    const result = await callApi({ action: 'addAnnouncement', text, pin });
+    if (result && result.error === 'invalid_pin') {
+      sessionPin = null;
+      showError('合言葉が違います。');
+      return;
+    }
+    hideError();
+    document.getElementById('announceText').value = '';
+    document.getElementById('announceForm').classList.remove('open');
+    loadAnnouncements();
+  } catch (e) {
+    showError('お知らせの投稿に失敗しました。「お知らせ」シートが作成されているか確認してください。');
+  }
 });
 
+// ---- NDCグリッド ----
 function renderNdcGrid() {
   const grid = document.getElementById('ndcGrid');
   grid.innerHTML = '';
@@ -124,6 +204,7 @@ function renderNdcGrid() {
   });
 }
 
+// ---- 本の検索・一覧 ----
 async function loadBooks() {
   const heading = document.getElementById('listHeading');
   const grid = document.getElementById('ndcGrid');
