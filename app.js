@@ -91,6 +91,9 @@ loadBackground();
 
 // ---- お気に入り(この端末だけのローカル保存) ----
 const FAV_KEY = 'library-app-favs';
+function favKeyOf(book) {
+  return book.id ? String(book.id) : `t:${book.title}|a:${book.author}`;
+}
 function getFavs() {
   try {
     return JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
@@ -98,12 +101,14 @@ function getFavs() {
     return [];
   }
 }
-function isFav(id) {
-  return getFavs().some((f) => f.id === id);
+function isFav(book) {
+  const key = favKeyOf(book);
+  return getFavs().some((f) => favKeyOf(f) === key);
 }
 function toggleFav(book) {
   const favs = getFavs();
-  const idx = favs.findIndex((f) => f.id === book.id);
+  const key = favKeyOf(book);
+  const idx = favs.findIndex((f) => favKeyOf(f) === key);
   if (idx === -1) {
     favs.push(book);
   } else {
@@ -113,6 +118,14 @@ function toggleFav(book) {
 }
 document.getElementById('showFavsBtn').addEventListener('click', () => {
   mode = 'favorites';
+  activeCat = '';
+  query = '';
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearSearchBtn').style.display = 'none';
+  loadBooks();
+});
+document.getElementById('showRankingBtn').addEventListener('click', () => {
+  mode = 'ranking';
   activeCat = '';
   query = '';
   document.getElementById('searchInput').value = '';
@@ -254,6 +267,23 @@ async function loadBooks() {
     return;
   }
 
+  if (mode === 'ranking') {
+    grid.style.display = 'none';
+    heading.style.display = 'flex';
+    document.getElementById('listArea').innerHTML = '<div class="empty">読み込み中…</div>';
+    try {
+      const res = await fetch(`${API_URL}?ranking=1`, { cache: 'no-store' });
+      const data = await res.json();
+      books = Array.isArray(data) ? data : [];
+      hideError();
+    } catch (e) {
+      showError('ランキングの取得に失敗しました。');
+      books = [];
+    }
+    render();
+    return;
+  }
+
   grid.style.display = 'none';
   heading.style.display = 'flex';
   document.getElementById('listArea').innerHTML = '<div class="empty">読み込み中…</div>';
@@ -286,22 +316,26 @@ function render() {
     heading.innerHTML = `<span>${activeCat}類: ${NDC_LABELS[activeCat]}</span>${backLink}`;
   } else if (mode === 'favorites') {
     heading.innerHTML = `<span>❤️ お気に入り</span>${backLink}`;
+  } else if (mode === 'ranking') {
+    heading.innerHTML = `<span>🏆 いいねランキング</span>${backLink}`;
   }
   const back = document.getElementById('backToHome');
   if (back) back.addEventListener('click', () => { mode = 'home'; activeCat = ''; loadBooks(); });
 
   if (books.length === 0) {
-    area.innerHTML = `<div class="empty">${mode === 'favorites' ? 'まだお気に入りがありません。' : '該当する本が見つかりません。'}</div>`;
+    area.innerHTML = `<div class="empty">${mode === 'favorites' ? 'まだお気に入りがありません。' : mode === 'ranking' ? 'まだいいねがついた本がありません。' : '該当する本が見つかりません。'}</div>`;
     return;
   }
 
-  books.forEach((b) => {
+  books.forEach((b, idx) => {
     const card = document.createElement('div');
     card.className = 'book-card';
-    const favActive = isFav(b.id);
+    const favActive = isFav(b);
+    const rankBadge = mode === 'ranking' ? `<span class="rank-badge">${idx + 1}位</span>` : '';
     card.innerHTML = `
       <div class="book-top">
         <div>
+          ${rankBadge}
           <div class="book-title">${escapeHtml(String(b.title || ''))}</div>
           <div class="book-meta">${escapeHtml(String(b.author || ''))} ・ ${escapeHtml(String(b.genre || ''))}</div>
         </div>
@@ -316,7 +350,7 @@ function render() {
     const favBtn = card.querySelector('.fav-btn');
     favBtn.addEventListener('click', () => {
       toggleFav({ id: b.id, title: b.title, author: b.author, genre: b.genre, ndc: b.ndc });
-      const nowFav = isFav(b.id);
+      const nowFav = isFav(b);
       favBtn.classList.toggle('active', nowFav);
       favBtn.innerHTML = `${nowFav ? '❤️' : '🤍'} お気に入り`;
       if (mode === 'favorites' && !nowFav) {
