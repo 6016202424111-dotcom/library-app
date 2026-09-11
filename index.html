@@ -8,19 +8,32 @@
 <link rel="icon" href="icon-192.png" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <meta name="theme-color" content="#1F2937" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <div id="app">
-  <div class="header">
-    <div>
-      <div class="eyebrow">学校図書室</div>
+  <div class="hero">
+    <div class="hero-text">
+      <div class="eyebrow">SCHOOL LIBRARY</div>
       <div class="title">本をさがす</div>
     </div>
     <div class="badge">📖</div>
   </div>
 
   <div class="save-error" id="saveError">保存に失敗しました。もう一度お試しください。</div>
+
+  <div id="announceArea"></div>
+  <button class="announce-toggle" id="openAnnounceFormBtn">📣 お知らせを書く(管理者用)</button>
+  <div class="announce-form" id="announceForm">
+    <textarea id="announceText" placeholder="お知らせの内容を入力"></textarea>
+    <div class="announce-form-row">
+      <button id="postAnnounceBtn" class="submit-btn">投稿する</button>
+      <button id="closeAnnounceFormBtn" class="cancel-btn">閉じる</button>
+    </div>
+  </div>
 
   <div class="search-box">
     <span class="search-icon">🔍</span>
