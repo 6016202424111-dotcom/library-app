@@ -120,3 +120,12 @@ html, body {
   margin-bottom: 10px; font-size: 14px; font-family: inherit;
 }
 .submit-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #1F2937; color: #FAF6EC; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
+
+@media (min-width: 900px) {
+  #app { max-width: 1000px; display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; padding-top: 20px; }
+  .hero { grid-column: 1 / -1; }
+  .settings-panel { grid-column: 1 / -1; }
+  .save-error { grid-column: 1 / -1; }
+  .sidebar { grid-column: 1; }
+  .main-content { grid-column: 2; }
+}
