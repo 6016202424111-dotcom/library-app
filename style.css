@@ -89,6 +89,11 @@ html, body {
 .ndc-btn.active { border-color: #4A7C7C; background: #F1F7F5; box-shadow: 0 2px 8px rgba(74,124,124,0.15); }
 
 .empty { text-align: center; color: #8A7B5C; padding: 24px 0; font-size: 14px; grid-column: 1 / -1; }
+.sort-row { grid-column: 1 / -1; margin-bottom: 4px; }
+.sort-row select {
+  border: 1px solid #E4D9BF; border-radius: 8px; padding: 6px 10px; font-size: 12.5px;
+  background: #fff; color: #5C5140; font-family: inherit;
+}
 .list-heading { font-size: 13px; font-weight: 700; color: #8A7B5C; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
 .list-heading .back-link { font-weight: 400; color: #4A7C7C; cursor: pointer; font-size: 12.5px; }
 
@@ -122,10 +127,9 @@ html, body {
   padding: 8px; font-size: 12.5px; cursor: pointer; font-family: inherit; color: #5C5140;
 }
 .fav-btn.active { border-color: #E4572E; color: #A3341B; background: #FBE3DC; }
+.like-btn.active { border-color: #2F6B52; color: #2F6B52; background: #E4F1EC; }
 .like-btn:disabled { opacity: 0.6; }
 .like-count { font-weight: 700; }
-
-.delete-btn { width: 100%; margin-top: 10px; background: none; border: none; color: #B0745B; font-size: 12px; padding: 6px; cursor: pointer; text-align: center; }
 
 .add-toggle {
   margin-top: 8px; width: 100%; padding: 14px; border-radius: 12px; border: 1.5px dashed #C9BE9E;
@@ -135,15 +139,6 @@ html, body {
 .add-toggle.hidden { display: none; }
 .bg-toggle { margin-top: 20px; }
 
-.add-form { background: #fff; border: 1px solid #EDE3C8; border-radius: 14px; padding: 16px; margin-top: 8px; display: none; }
-.add-form.open { display: block; }
-.form-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-.form-title { font-weight: 700; font-size: 15px; }
-.form-header button { border: none; background: none; cursor: pointer; color: #8A7B5C; font-size: 16px; }
-.add-form input[type="text"] {
-  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid #E4D9BF;
-  margin-bottom: 10px; font-size: 14px; font-family: inherit;
-}
 .submit-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #1F2937; color: #FAF6EC; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
 
 @media (min-width: 900px) {
