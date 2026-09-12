@@ -11,6 +11,7 @@ const NDC = [
   { n: '7', label: '芸術', emoji: '🎨' },
   { n: '8', label: '言語', emoji: '🗣️' },
   { n: '9', label: '文学', emoji: '✒️' },
+  { n: 'none', label: '分類なし', emoji: '❓' },
 ];
 
 let books = [];
@@ -19,6 +20,8 @@ let query = '';
 let activeCat = '';
 let searchTimer = null;
 let sessionPin = null;
+let currentOffset = 0;
+let hasMoreResults = false;
 
 // ---- 背景カスタマイズ(この端末だけのローカル設定) ----
 const BG_KEY = 'library-app-bg';
@@ -237,9 +240,6 @@ function renderNdcGrid() {
     btn.addEventListener('click', () => {
       mode = 'category';
       activeCat = c.n;
-      query = '';
-      document.getElementById('searchInput').value = '';
-      document.getElementById('clearSearchBtn').style.display = 'none';
       loadBooks();
     });
     grid.appendChild(btn);
@@ -286,19 +286,41 @@ async function loadBooks() {
 
   grid.style.display = 'none';
   heading.style.display = 'flex';
+  currentOffset = 0;
   document.getElementById('listArea').innerHTML = '<div class="empty">読み込み中…</div>';
 
   try {
-    const url = mode === 'search'
-      ? `${API_URL}?q=${encodeURIComponent(query.trim())}`
-      : `${API_URL}?cat=${encodeURIComponent(activeCat)}`;
+    const params = [];
+    if (activeCat) params.push(`cat=${encodeURIComponent(activeCat)}`);
+    if (query.trim()) params.push(`q=${encodeURIComponent(query.trim())}`);
+    const url = `${API_URL}?${params.join('&')}`;
     const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
-    books = Array.isArray(data) ? data : [];
+    books = Array.isArray(data.books) ? data.books : [];
+    hasMoreResults = !!data.hasMore;
     hideError();
   } catch (e) {
     showError('データの取得に失敗しました。通信環境を確認してください。');
     books = [];
+    hasMoreResults = false;
+  }
+  render();
+}
+
+async function loadMoreBooks() {
+  currentOffset += 60;
+  try {
+    const params = [`offset=${currentOffset}`];
+    if (activeCat) params.push(`cat=${encodeURIComponent(activeCat)}`);
+    if (query.trim()) params.push(`q=${encodeURIComponent(query.trim())}`);
+    const url = `${API_URL}?${params.join('&')}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+    const more = Array.isArray(data.books) ? data.books : [];
+    books = books.concat(more);
+    hasMoreResults = !!data.hasMore;
+  } catch (e) {
+    showError('追加の読み込みに失敗しました。');
   }
   render();
 }
@@ -313,14 +335,22 @@ function render() {
   if (mode === 'search') {
     heading.innerHTML = `<span>「${escapeHtml(query.trim())}」の検索結果</span>${backLink}`;
   } else if (mode === 'category') {
-    heading.innerHTML = `<span>${activeCat}類: ${NDC_LABELS[activeCat]}</span>${backLink}`;
+    const label = activeCat === 'none' ? '分類なし' : `${activeCat}類: ${NDC_LABELS[activeCat]}`;
+    heading.innerHTML = `<span>${label}</span>${backLink}`;
   } else if (mode === 'favorites') {
     heading.innerHTML = `<span>❤️ お気に入り</span>${backLink}`;
   } else if (mode === 'ranking') {
     heading.innerHTML = `<span>🏆 いいねランキング</span>${backLink}`;
   }
   const back = document.getElementById('backToHome');
-  if (back) back.addEventListener('click', () => { mode = 'home'; activeCat = ''; loadBooks(); });
+  if (back) back.addEventListener('click', () => {
+    mode = 'home';
+    activeCat = '';
+    query = '';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearchBtn').style.display = 'none';
+    loadBooks();
+  });
 
   if (books.length === 0) {
     area.innerHTML = `<div class="empty">${mode === 'favorites' ? 'まだお気に入りがありません。' : mode === 'ranking' ? 'まだいいねがついた本がありません。' : '該当する本が見つかりません。'}</div>`;
@@ -365,15 +395,30 @@ function render() {
         const result = await callApi({ action: 'like', id: b.id });
         if (result && result.ok) {
           likeBtn.querySelector('.like-count').textContent = result.likes;
+          hideError();
+        } else {
+          showError(`いいねに失敗しました(理由: ${result && result.error ? result.error : '不明'})`);
         }
       } catch (e) {
-        // 通信エラー時は静かに無視
+        showError('いいねの通信に失敗しました。');
       }
       likeBtn.disabled = false;
     });
 
     area.appendChild(card);
   });
+
+  if (hasMoreResults && (mode === 'search' || mode === 'category')) {
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'load-more-btn';
+    moreBtn.textContent = 'もっと見る';
+    moreBtn.addEventListener('click', async () => {
+      moreBtn.disabled = true;
+      moreBtn.textContent = '読み込み中…';
+      await loadMoreBooks();
+    });
+    area.appendChild(moreBtn);
+  }
 }
 
 document.getElementById('searchInput').addEventListener('input', (e) => {
@@ -381,7 +426,11 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
   document.getElementById('clearSearchBtn').style.display = query ? 'inline' : 'none';
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
-    mode = query.trim() ? 'search' : 'home';
+    if (activeCat) {
+      mode = 'category';
+    } else {
+      mode = query.trim() ? 'search' : 'home';
+    }
     loadBooks();
   }, 400);
 });
@@ -389,7 +438,7 @@ document.getElementById('clearSearchBtn').addEventListener('click', () => {
   query = '';
   document.getElementById('searchInput').value = '';
   document.getElementById('clearSearchBtn').style.display = 'none';
-  mode = 'home';
+  mode = activeCat ? 'category' : 'home';
   loadBooks();
 });
 
