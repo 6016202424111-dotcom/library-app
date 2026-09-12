@@ -22,6 +22,26 @@ let searchTimer = null;
 let sessionPin = null;
 let currentOffset = 0;
 let hasMoreResults = false;
+let currentSort = 'old';
+
+const LIKED_KEY = 'library-app-liked';
+function getLikedIds() {
+  try {
+    return JSON.parse(localStorage.getItem(LIKED_KEY) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+function isLiked(id) {
+  return getLikedIds().includes(String(id));
+}
+function setLiked(id, liked) {
+  const ids = getLikedIds();
+  const idx = ids.indexOf(String(id));
+  if (liked && idx === -1) ids.push(String(id));
+  if (!liked && idx !== -1) ids.splice(idx, 1);
+  localStorage.setItem(LIKED_KEY, JSON.stringify(ids));
+}
 
 // ---- 背景カスタマイズ(この端末だけのローカル設定) ----
 const BG_KEY = 'library-app-bg';
@@ -293,6 +313,7 @@ async function loadBooks() {
     const params = [];
     if (activeCat) params.push(`cat=${encodeURIComponent(activeCat)}`);
     if (query.trim()) params.push(`q=${encodeURIComponent(query.trim())}`);
+    params.push(`sort=${currentSort}`);
     const url = `${API_URL}?${params.join('&')}`;
     const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
@@ -310,7 +331,7 @@ async function loadBooks() {
 async function loadMoreBooks() {
   currentOffset += 60;
   try {
-    const params = [`offset=${currentOffset}`];
+    const params = [`offset=${currentOffset}`, `sort=${currentSort}`];
     if (activeCat) params.push(`cat=${encodeURIComponent(activeCat)}`);
     if (query.trim()) params.push(`q=${encodeURIComponent(query.trim())}`);
     const url = `${API_URL}?${params.join('&')}`;
@@ -352,8 +373,28 @@ function render() {
     loadBooks();
   });
 
+  if (mode === 'search' || mode === 'category') {
+    const sortWrap = document.createElement('div');
+    sortWrap.className = 'sort-row';
+    sortWrap.innerHTML = `
+      <select id="sortSelect">
+        <option value="old" ${currentSort === 'old' ? 'selected' : ''}>登録が古い順</option>
+        <option value="new" ${currentSort === 'new' ? 'selected' : ''}>登録が新しい順</option>
+        <option value="likes" ${currentSort === 'likes' ? 'selected' : ''}>いいねが多い順</option>
+      </select>
+    `;
+    area.appendChild(sortWrap);
+    document.getElementById('sortSelect').addEventListener('change', (e) => {
+      currentSort = e.target.value;
+      loadBooks();
+    });
+  }
+
   if (books.length === 0) {
-    area.innerHTML = `<div class="empty">${mode === 'favorites' ? 'まだお気に入りがありません。' : mode === 'ranking' ? 'まだいいねがついた本がありません。' : '該当する本が見つかりません。'}</div>`;
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'empty';
+    emptyDiv.textContent = mode === 'favorites' ? 'まだお気に入りがありません。' : mode === 'ranking' ? 'まだいいねがついた本がありません。' : '該当する本が見つかりません。';
+    area.appendChild(emptyDiv);
     return;
   }
 
@@ -373,7 +414,7 @@ function render() {
       </div>
       <div class="card-actions">
         <button class="fav-btn ${favActive ? 'active' : ''}">${favActive ? '❤️' : '🤍'} お気に入り</button>
-        <button class="like-btn">👍 いいね <span class="like-count">${Number(b.likes) || 0}</span></button>
+        <button class="like-btn ${isLiked(b.id) ? 'active' : ''}">${isLiked(b.id) ? '👍' : '👍🏻'} いいね <span class="like-count">${Number(b.likes) || 0}</span></button>
       </div>
     `;
 
@@ -391,10 +432,15 @@ function render() {
     const likeBtn = card.querySelector('.like-btn');
     likeBtn.addEventListener('click', async () => {
       likeBtn.disabled = true;
+      const alreadyLiked = isLiked(b.id);
+      const action = alreadyLiked ? 'unlike' : 'like';
       try {
-        const result = await callApi({ action: 'like', id: b.id });
+        const result = await callApi({ action, id: b.id });
         if (result && result.ok) {
           likeBtn.querySelector('.like-count').textContent = result.likes;
+          setLiked(b.id, !alreadyLiked);
+          likeBtn.classList.toggle('active', !alreadyLiked);
+          likeBtn.innerHTML = `${!alreadyLiked ? '👍' : '👍🏻'} いいね <span class="like-count">${result.likes}</span>`;
           hideError();
         } else {
           showError(`いいねに失敗しました(理由: ${result && result.error ? result.error : '不明'})`);
