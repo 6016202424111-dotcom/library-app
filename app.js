@@ -56,6 +56,7 @@ let sessionPin = null;
 let currentOffset = 0;
 let hasMoreResults = false;
 let currentSort = 'old';
+let ndcCounts = null;
 
 const LIKED_KEY = 'library-app-liked';
 function getLikedIds() {
@@ -289,7 +290,8 @@ function renderNdcGrid() {
   NDC.forEach((c) => {
     const btn = document.createElement('button');
     btn.className = 'ndc-btn' + (mode === 'category' && activeCat === c.n ? ' active' : '');
-    btn.innerHTML = `<span class="emoji">${c.emoji}</span><span><span class="num">${c.n}類</span><span class="label">${c.label}</span></span>`;
+    const countText = ndcCounts && typeof ndcCounts[c.n] === 'number' ? `(${ndcCounts[c.n]}冊)` : '';
+    btn.innerHTML = `<span class="emoji">${c.emoji}</span><span><span class="num">${c.n}類</span><span class="label">${c.label} ${countText}</span></span>`;
     btn.addEventListener('click', () => {
       mode = 'category';
       activeCat = c.n;
@@ -297,6 +299,16 @@ function renderNdcGrid() {
     });
     grid.appendChild(btn);
   });
+}
+
+async function loadNdcCounts() {
+  try {
+    const res = await fetch(`${API_URL}?counts=1`, { cache: 'no-store' });
+    ndcCounts = await res.json();
+    if (mode === 'home') renderNdcGrid();
+  } catch (e) {
+    // 冊数の取得に失敗しても、通常のブラウズには影響させない
+  }
 }
 
 // ---- 本の検索・一覧 ----
@@ -529,3 +541,4 @@ if ('serviceWorker' in navigator) {
 
 loadAnnouncements();
 loadBooks();
+loadNdcCounts();
