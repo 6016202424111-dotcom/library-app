@@ -275,9 +275,131 @@ document.getElementById('gachaBtn').addEventListener('click', async () => {
   }
 });
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
+// ---- ガチャコレクション ----
+function getGachaCollection() {
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem(GACHA_KEY) || '[]');
+  } catch (e) {}
+  const map = new Map();
+  history.forEach((h) => {
+    if (!map.has(h.id)) {
+      map.set(h.id, { ...h, count: 1 });
+    } else {
+      map.get(h.id).count++;
+    }
+  });
+  return Array.from(map.values());
+}
+document.getElementById('showCollectionBtn').addEventListener('click', () => {
+  mode = 'collection';
+  activeCat = '';
+  query = '';
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearSearchBtn').style.display = 'none';
+  loadBooks();
+});
+
+// ---- 目的から探す(質問に答えて絞り込む) ----
+const FINDER_GENRES = [
+  { label: '物語・小説が読みたい', cat: '9' },
+  { label: '歴史や地理、伝記に興味がある', cat: '2' },
+  { label: '社会のしくみを知りたい', cat: '3' },
+  { label: '科学や自然について知りたい', cat: '4' },
+  { label: 'ものづくり・技術に興味がある', cat: '5' },
+  { label: 'スポーツや芸術が好き', cat: '7' },
+  { label: 'ことば・外国語に興味がある', cat: '8' },
+  { label: '哲学や宗教、心について考えたい', cat: '1' },
+  { label: '特にこだわらない', cat: '' },
+];
+const FINDER_MOODS = [
+  '今はのんびりしたい気分',
+  '元気や勇気がほしい気分',
+  '新しい知識を深めたい気分',
+  'ワクワク・冒険したい気分',
+  '笑いたい・軽い気分で読みたい',
+];
+let finderMood = '';
+
+function openFinder() {
+  const overlay = document.getElementById('gachaOverlay');
+  const modal = document.getElementById('gachaModal');
+  overlay.classList.add('open');
+  renderFinderStep1();
+}
+function renderFinderStep1() {
+  const modal = document.getElementById('gachaModal');
+  modal.innerHTML = `
+    <div class="gacha-fortune" style="color:#2F6B52;">🧭 目的から探す</div>
+    <div style="font-size:13px;color:#8A7B5C;margin-bottom:12px;">今の気分は？</div>
+    <div class="finder-options" id="finderOptions"></div>
+    <button class="gacha-close-btn" id="gachaCloseBtn" style="margin-top:14px;">閉じる</button>
+  `;
+  const opts = document.getElementById('finderOptions');
+  FINDER_MOODS.forEach((m) => {
+    const btn = document.createElement('button');
+    btn.className = 'finder-btn';
+    btn.textContent = m;
+    btn.addEventListener('click', () => {
+      finderMood = m;
+      renderFinderStep2();
+    });
+    opts.appendChild(btn);
+  });
+  document.getElementById('gachaCloseBtn').addEventListener('click', () => {
+    document.getElementById('gachaOverlay').classList.remove('open');
+  });
+}
+function renderFinderStep2() {
+  const modal = document.getElementById('gachaModal');
+  modal.innerHTML = `
+    <div class="gacha-fortune" style="color:#2F6B52;">🧭 目的から探す</div>
+    <div style="font-size:13px;color:#8A7B5C;margin-bottom:12px;">興味のある分野は？</div>
+    <div class="finder-options" id="finderOptions"></div>
+    <button class="gacha-close-btn" id="gachaCloseBtn" style="margin-top:14px;">閉じる</button>
+  `;
+  const opts = document.getElementById('finderOptions');
+  FINDER_GENRES.forEach((g) => {
+    const btn = document.createElement('button');
+    btn.className = 'finder-btn';
+    btn.textContent = g.label;
+    btn.addEventListener('click', () => runFinder(g.cat));
+    opts.appendChild(btn);
+  });
+  document.getElementById('gachaCloseBtn').addEventListener('click', () => {
+    document.getElementById('gachaOverlay').classList.remove('open');
+  });
+}
+async function runFinder(cat) {
+  const modal = document.getElementById('gachaModal');
+  modal.innerHTML = `<div class="gacha-shuffling">🔍 探しています…</div>`;
+  try {
+    const params = [`gacha=1`, `r=${Date.now()}`];
+    if (cat) params.push(`cat=${encodeURIComponent(cat)}`);
+    const res = await fetch(`${API_URL}?${params.join('&')}`, { cache: 'no-store' });
+    const book = await res.json();
+    await new Promise((r) => setTimeout(r, 500));
+    if (!book || !book.id) {
+      modal.innerHTML = `<div class="gacha-shuffling">該当する本が見つかりませんでした。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
+      document.getElementById('gachaCloseBtn').addEventListener('click', () => document.getElementById('gachaOverlay').classList.remove('open'));
+      return;
+    }
+    modal.innerHTML = `
+      <div class="gacha-fortune" style="color:#2F6B52;">あなたへのおすすめ</div>
+      <div style="font-size:12.5px;color:#8A7B5C;">${escapeHtml(finderMood)}のあなたへ</div>
+      <div class="gacha-book-title">${escapeHtml(String(book.title || ''))}</div>
+      <div class="gacha-book-meta">${escapeHtml(String(book.author || ''))}${book.ndc ? ` ・ ${escapeHtml(String(book.ndc))}` : ''}</div>
+      <button class="gacha-again-btn" id="finderAgainBtn">もう一度探す</button>
+      <button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>
+    `;
+    document.getElementById('finderAgainBtn').addEventListener('click', () => renderFinderStep1());
+    document.getElementById('gachaCloseBtn').addEventListener('click', () => document.getElementById('gachaOverlay').classList.remove('open'));
+  } catch (e) {
+    modal.innerHTML = `<div class="gacha-shuffling">通信に失敗しました。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
+    document.getElementById('gachaCloseBtn').addEventListener('click', () => document.getElementById('gachaOverlay').classList.remove('open'));
+  }
+}
+document.getElementById('finderBtn').addEventListener('click', openFinder);
   return div.innerHTML;
 }
 function showError(msg) {
@@ -417,6 +539,14 @@ async function loadBooks() {
     return;
   }
 
+  if (mode === 'collection') {
+    grid.style.display = 'none';
+    heading.style.display = 'flex';
+    books = getGachaCollection();
+    render();
+    return;
+  }
+
   if (mode === 'ranking') {
     grid.style.display = 'none';
     heading.style.display = 'flex';
@@ -490,6 +620,8 @@ function render() {
     heading.innerHTML = `<span>${label}</span>${backLink}`;
   } else if (mode === 'favorites') {
     heading.innerHTML = `<span>❤️ お気に入り</span>${backLink}`;
+  } else if (mode === 'collection') {
+    heading.innerHTML = `<span>🎴 コレクション(${books.length}冊)</span>${backLink}`;
   } else if (mode === 'ranking') {
     heading.innerHTML = `<span>🏆 いいねランキング</span>${backLink}`;
   }
@@ -523,7 +655,7 @@ function render() {
   if (books.length === 0) {
     const emptyDiv = document.createElement('div');
     emptyDiv.className = 'empty';
-    emptyDiv.textContent = mode === 'favorites' ? 'まだお気に入りがありません。' : mode === 'ranking' ? 'まだいいねがついた本がありません。' : '該当する本が見つかりません。';
+    emptyDiv.textContent = mode === 'favorites' ? 'まだお気に入りがありません。' : mode === 'ranking' ? 'まだいいねがついた本がありません。' : mode === 'collection' ? 'まだガチャを引いていません。' : '該当する本が見つかりません。';
     area.appendChild(emptyDiv);
     return;
   }
@@ -532,7 +664,7 @@ function render() {
     const card = document.createElement('div');
     card.className = 'book-card';
     const favActive = isFav(b);
-    const rankBadge = mode === 'ranking' ? `<span class="rank-badge">${idx + 1}位</span>` : '';
+    const rankBadge = mode === 'ranking' ? `<span class="rank-badge">${idx + 1}位</span>` : mode === 'collection' ? `<span class="rank-badge">${b.count}回GET</span>` : '';
     card.innerHTML = `
       <div class="book-top">
         <div>
