@@ -14,6 +14,7 @@ const NDC = [
   { n: 'none', label: '分類なし', emoji: '❓' },
 ];
 
+// NDCの十の位(2桁目)までの区分名。例: 291 → 「29」→地理・地誌・紀行
 const NDC_DIVISIONS = {
   '00': '総記', '01': '図書館・図書館学', '02': '図書・書誌学', '03': '百科事典',
   '04': '一般論文集', '05': '逐次刊行物', '06': '団体', '07': 'ジャーナリズム・新聞',
@@ -220,4 +221,409 @@ function getTodayGacha() {
   } catch (e) {}
   return null;
 }
-function
+function saveTodayGacha(book, fortune) {
+  const record = { date: todayStr2(), book, fortune };
+  localStorage.setItem(GACHA_TODAY_KEY, JSON.stringify(record));
+  try {
+    const history = JSON.parse(localStorage.getItem(GACHA_KEY) || '[]');
+    history.push({ id: book.id, title: book.title, author: book.author, ndc: book.ndc, drawnAt: new Date().toISOString() });
+    localStorage.setItem(GACHA_KEY, JSON.stringify(history));
+  } catch (e) {}
+}
+function renderGachaResult(book, fortune, alreadyDrawn) {
+  const modal = document.getElementById('gachaModal');
+  modal.innerHTML = `
+    <div class="gacha-fortune">${fortune}</div>
+    <div style="font-size:13px;color:#8A7B5C;">${alreadyDrawn ? '今日引いた本です' : '今日のあなたに引き当てられた本'}</div>
+    <div class="gacha-book-title">${escapeHtml(String(book.title || ''))}</div>
+    <div class="gacha-book-meta">${escapeHtml(String(book.author || ''))}${book.ndc ? ` ・ ${escapeHtml(String(book.ndc))}` : ''}</div>
+    ${alreadyDrawn ? '<div style="font-size:12px;color:#8A7B5C;margin-top:6px;">本ガチャは1日1回です。また明日引けます。</div>' : ''}
+    <button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>
+  `;
+  document.getElementById('gachaCloseBtn').addEventListener('click', () => {
+    document.getElementById('gachaOverlay').classList.remove('open');
+  });
+}
+
+document.getElementById('gachaBtn').addEventListener('click', async () => {
+  const overlay = document.getElementById('gachaOverlay');
+  const modal = document.getElementById('gachaModal');
+  overlay.classList.add('open');
+
+  const existing = getTodayGacha();
+  if (existing) {
+    renderGachaResult(existing.book, existing.fortune, true);
+    return;
+  }
+
+  modal.innerHTML = `<div class="gacha-shuffling">🎴 シャッフル中…</div>`;
+  try {
+    const res = await fetch(`${API_URL}?gacha=1&r=${Date.now()}`, { cache: 'no-store' });
+    const book = await res.json();
+    await new Promise((r) => setTimeout(r, 600));
+    if (!book || !book.id) {
+      modal.innerHTML = `<div class="gacha-shuffling">本が見つかりませんでした。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
+      document.getElementById('gachaCloseBtn').addEventListener('click', () => overlay.classList.remove('open'));
+      return;
+    }
+    const fortune = pickFortune();
+    saveTodayGacha(book, fortune);
+    renderGachaResult(book, fortune, false);
+  } catch (e) {
+    modal.innerHTML = `<div class="gacha-shuffling">通信に失敗しました。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
+    document.getElementById('gachaCloseBtn').addEventListener('click', () => overlay.classList.remove('open'));
+  }
+});
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+function showError(msg) {
+  const el = document.getElementById('saveError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('saveError').style.display = 'none';
+}
+function askPin() {
+  if (sessionPin) return sessionPin;
+  const p = window.prompt('合言葉(PIN)を入力してください');
+  sessionPin = p;
+  return p;
+}
+async function callApi(payload) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  });
+  return res.json();
+}
+
+// ---- お知らせ ----
+async function loadAnnouncements() {
+  try {
+    const res = await fetch(`${API_URL}?ann=1`, { cache: 'no-store' });
+    const data = await res.json();
+    renderAnnouncements(Array.isArray(data) ? data : []);
+  } catch (e) {}
+}
+function renderAnnouncements(list) {
+  const area = document.getElementById('announceArea');
+  area.innerHTML = '';
+  list.forEach((a) => {
+    const card = document.createElement('div');
+    card.className = 'announce-card';
+    card.innerHTML = `
+      <div class="a-text">${escapeHtml(String(a.text || ''))}</div>
+      <div class="a-meta">
+        <span class="a-date">${escapeHtml(String(a.postedAt || ''))}</span>
+        <button class="a-delete">削除</button>
+      </div>
+    `;
+    card.querySelector('.a-delete').addEventListener('click', async () => {
+      const pin = askPin();
+      if (!pin) return;
+      const result = await callApi({ action: 'deleteAnnouncement', id: a.id, pin });
+      if (result && result.error === 'invalid_pin') {
+        sessionPin = null;
+        showError('合言葉が違います。');
+      }
+      loadAnnouncements();
+    });
+    area.appendChild(card);
+  });
+}
+document.getElementById('openAnnounceFormBtn').addEventListener('click', () => {
+  document.getElementById('announceForm').classList.add('open');
+});
+document.getElementById('closeAnnounceFormBtn').addEventListener('click', () => {
+  document.getElementById('announceForm').classList.remove('open');
+});
+document.getElementById('postAnnounceBtn').addEventListener('click', async () => {
+  const text = document.getElementById('announceText').value.trim();
+  if (!text) {
+    window.alert('お知らせの内容を入力してください。');
+    return;
+  }
+  const pin = askPin();
+  if (!pin) return;
+  try {
+    const result = await callApi({ action: 'addAnnouncement', text, pin });
+    if (result && result.error === 'invalid_pin') {
+      sessionPin = null;
+      showError('合言葉が違います。');
+      return;
+    }
+    hideError();
+    document.getElementById('announceText').value = '';
+    document.getElementById('announceForm').classList.remove('open');
+    loadAnnouncements();
+  } catch (e) {
+    showError('お知らせの投稿に失敗しました。「お知らせ」シートが作成されているか確認してください。');
+  }
+});
+
+// ---- NDCグリッド ----
+function renderNdcGrid() {
+  const grid = document.getElementById('ndcGrid');
+  grid.innerHTML = '';
+  NDC.forEach((c) => {
+    const btn = document.createElement('button');
+    btn.className = 'ndc-btn' + (mode === 'category' && activeCat === c.n ? ' active' : '');
+    const countText = ndcCounts && typeof ndcCounts[c.n] === 'number' ? `(${ndcCounts[c.n]}冊)` : '';
+    btn.innerHTML = `<span class="emoji">${c.emoji}</span><span><span class="num">${c.n}類</span><span class="label">${c.label} ${countText}</span></span>`;
+    btn.addEventListener('click', () => {
+      mode = 'category';
+      activeCat = c.n;
+      loadBooks();
+    });
+    grid.appendChild(btn);
+  });
+}
+
+async function loadNdcCounts() {
+  try {
+    const res = await fetch(`${API_URL}?counts=1`, { cache: 'no-store' });
+    ndcCounts = await res.json();
+    if (mode === 'home') renderNdcGrid();
+  } catch (e) {
+    // 冊数の取得に失敗しても、通常のブラウズには影響させない
+  }
+}
+
+// ---- 本の検索・一覧 ----
+async function loadBooks() {
+  const heading = document.getElementById('listHeading');
+  const grid = document.getElementById('ndcGrid');
+
+  if (mode === 'home') {
+    heading.style.display = 'none';
+    grid.style.display = 'grid';
+    document.getElementById('listArea').innerHTML = '';
+    renderNdcGrid();
+    return;
+  }
+
+  if (mode === 'favorites') {
+    grid.style.display = 'none';
+    heading.style.display = 'flex';
+    books = getFavs();
+    render();
+    return;
+  }
+
+  if (mode === 'ranking') {
+    grid.style.display = 'none';
+    heading.style.display = 'flex';
+    document.getElementById('listArea').innerHTML = '<div class="empty">読み込み中…</div>';
+    try {
+      const res = await fetch(`${API_URL}?ranking=1`, { cache: 'no-store' });
+      const data = await res.json();
+      books = Array.isArray(data) ? data : [];
+      hideError();
+    } catch (e) {
+      showError('ランキングの取得に失敗しました。');
+      books = [];
+    }
+    render();
+    return;
+  }
+
+  grid.style.display = 'none';
+  heading.style.display = 'flex';
+  currentOffset = 0;
+  document.getElementById('listArea').innerHTML = '<div class="empty">読み込み中…</div>';
+
+  try {
+    const params = [];
+    if (activeCat) params.push(`cat=${encodeURIComponent(activeCat)}`);
+    if (query.trim()) params.push(`q=${encodeURIComponent(query.trim())}`);
+    params.push(`sort=${currentSort}`);
+    const url = `${API_URL}?${params.join('&')}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+    books = Array.isArray(data.books) ? data.books : [];
+    hasMoreResults = !!data.hasMore;
+    hideError();
+  } catch (e) {
+    showError('データの取得に失敗しました。通信環境を確認してください。');
+    books = [];
+    hasMoreResults = false;
+  }
+  render();
+}
+
+async function loadMoreBooks() {
+  currentOffset += 60;
+  try {
+    const params = [`offset=${currentOffset}`, `sort=${currentSort}`];
+    if (activeCat) params.push(`cat=${encodeURIComponent(activeCat)}`);
+    if (query.trim()) params.push(`q=${encodeURIComponent(query.trim())}`);
+    const url = `${API_URL}?${params.join('&')}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+    const more = Array.isArray(data.books) ? data.books : [];
+    books = books.concat(more);
+    hasMoreResults = !!data.hasMore;
+  } catch (e) {
+    showError('追加の読み込みに失敗しました。');
+  }
+  render();
+}
+
+function render() {
+  const area = document.getElementById('listArea');
+  const heading = document.getElementById('listHeading');
+  area.innerHTML = '';
+
+  const NDC_LABELS = Object.fromEntries(NDC.map((c) => [c.n, c.label]));
+  const backLink = `<span class="back-link" id="backToHome">← 分類にもどる</span>`;
+  if (mode === 'search') {
+    heading.innerHTML = `<span>「${escapeHtml(query.trim())}」の検索結果</span>${backLink}`;
+  } else if (mode === 'category') {
+    const label = activeCat === 'none' ? '分類なし' : `${activeCat}類: ${NDC_LABELS[activeCat]}`;
+    heading.innerHTML = `<span>${label}</span>${backLink}`;
+  } else if (mode === 'favorites') {
+    heading.innerHTML = `<span>❤️ お気に入り</span>${backLink}`;
+  } else if (mode === 'ranking') {
+    heading.innerHTML = `<span>🏆 いいねランキング</span>${backLink}`;
+  }
+  const back = document.getElementById('backToHome');
+  if (back) back.addEventListener('click', () => {
+    mode = 'home';
+    activeCat = '';
+    query = '';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearchBtn').style.display = 'none';
+    loadBooks();
+  });
+
+  if (mode === 'search' || mode === 'category') {
+    const sortWrap = document.createElement('div');
+    sortWrap.className = 'sort-row';
+    sortWrap.innerHTML = `
+      <select id="sortSelect">
+        <option value="old" ${currentSort === 'old' ? 'selected' : ''}>登録が古い順</option>
+        <option value="new" ${currentSort === 'new' ? 'selected' : ''}>登録が新しい順</option>
+        <option value="likes" ${currentSort === 'likes' ? 'selected' : ''}>いいねが多い順</option>
+      </select>
+    `;
+    area.appendChild(sortWrap);
+    document.getElementById('sortSelect').addEventListener('change', (e) => {
+      currentSort = e.target.value;
+      loadBooks();
+    });
+  }
+
+  if (books.length === 0) {
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'empty';
+    emptyDiv.textContent = mode === 'favorites' ? 'まだお気に入りがありません。' : mode === 'ranking' ? 'まだいいねがついた本がありません。' : '該当する本が見つかりません。';
+    area.appendChild(emptyDiv);
+    return;
+  }
+
+  books.forEach((b, idx) => {
+    const card = document.createElement('div');
+    card.className = 'book-card';
+    const favActive = isFav(b);
+    const rankBadge = mode === 'ranking' ? `<span class="rank-badge">${idx + 1}位</span>` : '';
+    card.innerHTML = `
+      <div class="book-top">
+        <div>
+          ${rankBadge}
+          <div class="book-title">${escapeHtml(String(b.title || ''))}</div>
+          <div class="book-meta">${escapeHtml(String(b.author || ''))} ・ ${escapeHtml(String(b.genre || ''))}</div>
+        </div>
+        ${b.ndc ? `<span class="ndc-pill">${escapeHtml(String(b.ndc))}${ndcDivisionLabel(b.ndc) ? `<br>(${ndcDivisionLabel(b.ndc)})` : ''}</span>` : ''}
+      </div>
+      <div class="card-actions">
+        <button class="fav-btn ${favActive ? 'active' : ''}">${favActive ? '❤️' : '🤍'} お気に入り</button>
+        <button class="like-btn ${isLiked(b.id) ? 'active' : ''}">${isLiked(b.id) ? '👍' : '👍🏻'} いいね <span class="like-count">${Number(b.likes) || 0}</span></button>
+      </div>
+    `;
+
+    const favBtn = card.querySelector('.fav-btn');
+    favBtn.addEventListener('click', () => {
+      toggleFav({ id: b.id, title: b.title, author: b.author, genre: b.genre, ndc: b.ndc });
+      const nowFav = isFav(b);
+      favBtn.classList.toggle('active', nowFav);
+      favBtn.innerHTML = `${nowFav ? '❤️' : '🤍'} お気に入り`;
+      if (mode === 'favorites' && !nowFav) {
+        loadBooks();
+      }
+    });
+
+    const likeBtn = card.querySelector('.like-btn');
+    likeBtn.addEventListener('click', async () => {
+      likeBtn.disabled = true;
+      const alreadyLiked = isLiked(b.id);
+      const action = alreadyLiked ? 'unlike' : 'like';
+      try {
+        const result = await callApi({ action, id: b.id });
+        if (result && result.ok) {
+          likeBtn.querySelector('.like-count').textContent = result.likes;
+          setLiked(b.id, !alreadyLiked);
+          likeBtn.classList.toggle('active', !alreadyLiked);
+          likeBtn.innerHTML = `${!alreadyLiked ? '👍' : '👍🏻'} いいね <span class="like-count">${result.likes}</span>`;
+          hideError();
+        } else {
+          showError(`いいねに失敗しました(理由: ${result && result.error ? result.error : '不明'})`);
+        }
+      } catch (e) {
+        showError('いいねの通信に失敗しました。');
+      }
+      likeBtn.disabled = false;
+    });
+
+    area.appendChild(card);
+  });
+
+  if (hasMoreResults && (mode === 'search' || mode === 'category')) {
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'load-more-btn';
+    moreBtn.textContent = 'もっと見る';
+    moreBtn.addEventListener('click', async () => {
+      moreBtn.disabled = true;
+      moreBtn.textContent = '読み込み中…';
+      await loadMoreBooks();
+    });
+    area.appendChild(moreBtn);
+  }
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  query = e.target.value;
+  document.getElementById('clearSearchBtn').style.display = query ? 'inline' : 'none';
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    if (activeCat) {
+      mode = 'category';
+    } else {
+      mode = query.trim() ? 'search' : 'home';
+    }
+    loadBooks();
+  }, 400);
+});
+document.getElementById('clearSearchBtn').addEventListener('click', () => {
+  query = '';
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearSearchBtn').style.display = 'none';
+  mode = activeCat ? 'category' : 'home';
+  loadBooks();
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+
+loadAnnouncements();
+loadBooks();
+loadNdcCounts();
