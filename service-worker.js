@@ -1,4 +1,4 @@
-const CACHE_NAME = 'library-app-v7';
+const CACHE_NAME = 'library-app-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -21,11 +21,14 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// 自分のサイト(見た目のファイル)だけキャッシュ対象にする。
+// データベース(script.google.com)への通信は、キャッシュせず常に最新を取りに行く。
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   const isSameOrigin = url.origin === self.location.origin;
 
   if (!isSameOrigin) {
+    // 外部(スプレッドシートAPI)への通信はキャッシュを一切介さない
     event.respondWith(fetch(event.request));
     return;
   }
