@@ -190,8 +190,9 @@ document.getElementById('showRankingBtn').addEventListener('click', () => {
   loadBooks();
 });
 
-// ---- 本ガチャ ----
+// ---- 本ガチャ(1日1回) ----
 const GACHA_KEY = 'library-app-gacha-history';
+const GACHA_TODAY_KEY = 'library-app-gacha-today';
 const FORTUNES = [
   { label: '大吉', weight: 5 },
   { label: '吉', weight: 20 },
@@ -209,45 +210,69 @@ function pickFortune() {
   }
   return FORTUNES[0].label;
 }
-function recordGachaHistory(book) {
+function todayStr2() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function getTodayGacha() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GACHA_TODAY_KEY) || 'null');
+    if (raw && raw.date === todayStr2()) return raw;
+  } catch (e) {}
+  return null;
+}
+function saveTodayGacha(book, fortune) {
+  const record = { date: todayStr2(), book, fortune };
+  localStorage.setItem(GACHA_TODAY_KEY, JSON.stringify(record));
   try {
     const history = JSON.parse(localStorage.getItem(GACHA_KEY) || '[]');
     history.push({ id: book.id, title: book.title, author: book.author, ndc: book.ndc, drawnAt: new Date().toISOString() });
     localStorage.setItem(GACHA_KEY, JSON.stringify(history));
   } catch (e) {}
 }
+function renderGachaResult(book, fortune, alreadyDrawn) {
+  const modal = document.getElementById('gachaModal');
+  modal.innerHTML = `
+    <div class="gacha-fortune">${fortune}</div>
+    <div style="font-size:13px;color:#8A7B5C;">${alreadyDrawn ? '今日引いた本です' : '今日のあなたに引き当てられた本'}</div>
+    <div class="gacha-book-title">${escapeHtml(String(book.title || ''))}</div>
+    <div class="gacha-book-meta">${escapeHtml(String(book.author || ''))}${book.ndc ? ` ・ ${escapeHtml(String(book.ndc))}` : ''}</div>
+    ${alreadyDrawn ? '<div style="font-size:12px;color:#8A7B5C;margin-top:6px;">本ガチャは1日1回です。また明日引けます。</div>' : ''}
+    <button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>
+  `;
+  document.getElementById('gachaCloseBtn').addEventListener('click', () => {
+    document.getElementById('gachaOverlay').classList.remove('open');
+  });
+}
 
 document.getElementById('gachaBtn').addEventListener('click', async () => {
   const overlay = document.getElementById('gachaOverlay');
   const modal = document.getElementById('gachaModal');
   overlay.classList.add('open');
-  modal.innerHTML = `<div class="gacha-shuffling">🎴 シャッフル中…</div>`;
 
+  const existing = getTodayGacha();
+  if (existing) {
+    renderGachaResult(existing.book, existing.fortune, true);
+    return;
+  }
+
+  modal.innerHTML = `<div class="gacha-shuffling">🎴 シャッフル中…</div>`;
   try {
     const res = await fetch(`${API_URL}?gacha=1&r=${Date.now()}`, { cache: 'no-store' });
     const book = await res.json();
     await new Promise((r) => setTimeout(r, 600));
     if (!book || !book.id) {
       modal.innerHTML = `<div class="gacha-shuffling">本が見つかりませんでした。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
-    } else {
-      const fortune = pickFortune();
-      recordGachaHistory(book);
-      modal.innerHTML = `
-        <div class="gacha-fortune">${fortune}</div>
-        <div style="font-size:13px;color:#8A7B5C;">今日のあなたに引き当てられた本</div>
-        <div class="gacha-book-title">${escapeHtml(String(book.title || ''))}</div>
-        <div class="gacha-book-meta">${escapeHtml(String(book.author || ''))}${book.ndc ? ` ・ ${escapeHtml(String(book.ndc))}` : ''}</div>
-        <button class="gacha-again-btn" id="gachaAgainBtn">もう一度引く</button>
-        <button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>
-      `;
-      const again = document.getElementById('gachaAgainBtn');
-      if (again) again.addEventListener('click', () => document.getElementById('gachaBtn').click());
+      document.getElementById('gachaCloseBtn').addEventListener('click', () => overlay.classList.remove('open'));
+      return;
     }
+    const fortune = pickFortune();
+    saveTodayGacha(book, fortune);
+    renderGachaResult(book, fortune, false);
   } catch (e) {
     modal.innerHTML = `<div class="gacha-shuffling">通信に失敗しました。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
+    document.getElementById('gachaCloseBtn').addEventListener('click', () => overlay.classList.remove('open'));
   }
-  const closeBtn = document.getElementById('gachaCloseBtn');
-  if (closeBtn) closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
 });
 
 function escapeHtml(str) {
