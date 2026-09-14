@@ -190,6 +190,66 @@ document.getElementById('showRankingBtn').addEventListener('click', () => {
   loadBooks();
 });
 
+// ---- 本ガチャ ----
+const GACHA_KEY = 'library-app-gacha-history';
+const FORTUNES = [
+  { label: '大吉', weight: 5 },
+  { label: '吉', weight: 20 },
+  { label: '中吉', weight: 25 },
+  { label: '小吉', weight: 25 },
+  { label: '末吉', weight: 20 },
+  { label: '凶(でも良書)', weight: 5 },
+];
+function pickFortune() {
+  const total = FORTUNES.reduce((s, f) => s + f.weight, 0);
+  let r = Math.random() * total;
+  for (const f of FORTUNES) {
+    if (r < f.weight) return f.label;
+    r -= f.weight;
+  }
+  return FORTUNES[0].label;
+}
+function recordGachaHistory(book) {
+  try {
+    const history = JSON.parse(localStorage.getItem(GACHA_KEY) || '[]');
+    history.push({ id: book.id, title: book.title, author: book.author, ndc: book.ndc, drawnAt: new Date().toISOString() });
+    localStorage.setItem(GACHA_KEY, JSON.stringify(history));
+  } catch (e) {}
+}
+
+document.getElementById('gachaBtn').addEventListener('click', async () => {
+  const overlay = document.getElementById('gachaOverlay');
+  const modal = document.getElementById('gachaModal');
+  overlay.classList.add('open');
+  modal.innerHTML = `<div class="gacha-shuffling">🎴 シャッフル中…</div>`;
+
+  try {
+    const res = await fetch(`${API_URL}?gacha=1&r=${Date.now()}`, { cache: 'no-store' });
+    const book = await res.json();
+    await new Promise((r) => setTimeout(r, 600));
+    if (!book || !book.id) {
+      modal.innerHTML = `<div class="gacha-shuffling">本が見つかりませんでした。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
+    } else {
+      const fortune = pickFortune();
+      recordGachaHistory(book);
+      modal.innerHTML = `
+        <div class="gacha-fortune">${fortune}</div>
+        <div style="font-size:13px;color:#8A7B5C;">今日のあなたに引き当てられた本</div>
+        <div class="gacha-book-title">${escapeHtml(String(book.title || ''))}</div>
+        <div class="gacha-book-meta">${escapeHtml(String(book.author || ''))}${book.ndc ? ` ・ ${escapeHtml(String(book.ndc))}` : ''}</div>
+        <button class="gacha-again-btn" id="gachaAgainBtn">もう一度引く</button>
+        <button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>
+      `;
+      const again = document.getElementById('gachaAgainBtn');
+      if (again) again.addEventListener('click', () => document.getElementById('gachaBtn').click());
+    }
+  } catch (e) {
+    modal.innerHTML = `<div class="gacha-shuffling">通信に失敗しました。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
+  }
+  const closeBtn = document.getElementById('gachaCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
+});
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
