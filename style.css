@@ -22,22 +22,6 @@ html, body {
 }
 .badge:active { transform: scale(0.95); }
 
-.settings-panel {
-  display: none; background: #fff; border: 1px solid #EDE3C8; border-radius: 14px;
-  padding: 16px; margin: 10px 0 0;
-}
-.settings-panel.open { display: block; }
-.settings-title { font-size: 13px; font-weight: 700; color: #8A7B5C; margin-bottom: 12px; }
-.color-swatches { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.swatch {
-  width: 34px; height: 34px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;
-}
-.swatch.selected { border-color: #1F2937; }
-.upload-label { display: block; font-size: 13px; color: #8A7B5C; margin-bottom: 14px; }
-.upload-label input { display: block; margin-top: 6px; font-size: 12.5px; }
-.settings-row { display: flex; gap: 8px; }
-.settings-row button { flex: 1; }
-
 .save-error {
   background: #FBE3DC; border: 1px solid #E4572E; color: #A3341B;
   font-size: 13px; padding: 10px 12px; border-radius: 10px; margin-bottom: 16px; display: none;
@@ -140,10 +124,9 @@ html, body {
   display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-family: inherit;
 }
 .add-toggle.hidden { display: none; }
-.bg-toggle { margin-top: 20px; }
-.gacha-toggle {
-  background: linear-gradient(135deg, #E8A33D 0%, #D9762E 100%);
-  border: none; color: #1B2430;
+.lucky-toggle {
+  background: linear-gradient(135deg, #4A7C7C 0%, #2F5750 100%);
+  border: none; color: #FAF6EC;
 }
 
 .gacha-overlay {
@@ -155,7 +138,7 @@ html, body {
   background: #FAF6EC; border-radius: 18px; padding: 22px; max-width: 380px; width: 100%;
   text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
-.gacha-fortune { font-size: 22px; font-weight: 700; color: #A3341B; margin-bottom: 6px; }
+.gacha-fortune { font-size: 19px; font-weight: 700; color: #2F6B52; margin-bottom: 10px; }
 .gacha-shuffling { font-size: 15px; color: #8A7B5C; padding: 30px 0; }
 .gacha-book-title { font-size: 17px; font-weight: 700; margin: 10px 0 4px; }
 .gacha-book-meta { font-size: 13px; color: #8A7B5C; margin-bottom: 14px; }
@@ -163,22 +146,11 @@ html, body {
   margin-top: 14px; width: 100%; padding: 12px; border-radius: 10px; border: none;
   background: #1F2937; color: #FAF6EC; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
 }
-
-.add-form { background: #fff; border: 1px solid #EDE3C8; border-radius: 14px; padding: 16px; margin-top: 8px; display: none; }
-.add-form.open { display: block; }
-.form-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-.form-title { font-weight: 700; font-size: 15px; }
-.form-header button { border: none; background: none; cursor: pointer; color: #8A7B5C; font-size: 16px; }
-.add-form input[type="text"] {
-  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid #E4D9BF;
-  margin-bottom: 10px; font-size: 14px; font-family: inherit;
-}
 .submit-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #1F2937; color: #FAF6EC; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
 
 @media (min-width: 900px) {
   #app { max-width: 1000px; display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; padding-top: 20px; }
   .hero { grid-column: 1 / -1; }
-  .settings-panel { grid-column: 1 / -1; }
   .save-error { grid-column: 1 / -1; }
   .sidebar { grid-column: 1; }
   .main-content { grid-column: 2; }
