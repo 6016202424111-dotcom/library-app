@@ -14,7 +14,6 @@ const NDC = [
   { n: 'none', label: '分類なし', emoji: '❓' },
 ];
 
-// NDCの十の位(2桁目)までの区分名。例: 291 → 「29」→地理・地誌・紀行
 const NDC_DIVISIONS = {
   '00': '総記', '01': '図書館・図書館学', '02': '図書・書誌学', '03': '百科事典',
   '04': '一般論文集', '05': '逐次刊行物', '06': '団体', '07': 'ジャーナリズム・新聞',
@@ -55,7 +54,7 @@ let searchTimer = null;
 let sessionPin = null;
 let currentOffset = 0;
 let hasMoreResults = false;
-let currentSort = 'old';
+let currentSort = 'new';
 let ndcCounts = null;
 
 const LIKED_KEY = 'library-app-liked';
@@ -77,74 +76,34 @@ function setLiked(id, liked) {
   localStorage.setItem(LIKED_KEY, JSON.stringify(ids));
 }
 
-// ---- 背景カスタマイズ(この端末だけのローカル設定) ----
-const BG_KEY = 'library-app-bg';
-const BG_COLORS = ['#F5EFE0', '#E9F1EE', '#FDEBE3', '#EAEFF7', '#F3E9F5', '#1B2430'];
-
-function applyBackground(pref) {
-  if (!pref) {
-    document.body.style.background = '';
-    document.body.style.backgroundImage = '';
-    return;
-  }
-  if (pref.type === 'color') {
-    document.body.style.backgroundImage = '';
-    document.body.style.background = pref.value;
-  } else if (pref.type === 'image') {
-    document.body.style.backgroundImage = `url(${pref.value})`;
-    document.body.style.backgroundSize = 'cover';
-    document.body.style.backgroundPosition = 'center';
-    document.body.style.backgroundAttachment = 'fixed';
-  }
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
-function loadBackground() {
-  try {
-    const raw = localStorage.getItem(BG_KEY);
-    if (raw) applyBackground(JSON.parse(raw));
-  } catch (e) {}
+function showError(msg) {
+  const el = document.getElementById('saveError');
+  el.textContent = msg;
+  el.style.display = 'block';
 }
-function saveBackground(pref) {
-  try {
-    localStorage.setItem(BG_KEY, JSON.stringify(pref));
-  } catch (e) {
-    showError('背景の保存に失敗しました(容量オーバーの可能性があります)。');
-  }
-  applyBackground(pref);
+function hideError() {
+  document.getElementById('saveError').style.display = 'none';
 }
-function renderSwatches() {
-  const wrap = document.getElementById('colorSwatches');
-  wrap.innerHTML = '';
-  BG_COLORS.forEach((c) => {
-    const s = document.createElement('div');
-    s.className = 'swatch';
-    s.style.background = c;
-    s.addEventListener('click', () => saveBackground({ type: 'color', value: c }));
-    wrap.appendChild(s);
+function askPin() {
+  if (sessionPin) return sessionPin;
+  const p = window.prompt('合言葉(PIN)を入力してください');
+  sessionPin = p;
+  return p;
+}
+async function callApi(payload) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
   });
+  return res.json();
 }
-document.getElementById('settingsBtn').addEventListener('click', () => {
-  document.getElementById('settingsPanel').classList.toggle('open');
-});
-document.getElementById('closeSettingsBtn').addEventListener('click', () => {
-  document.getElementById('settingsPanel').classList.remove('open');
-});
-document.getElementById('resetBgBtn').addEventListener('click', () => {
-  localStorage.removeItem(BG_KEY);
-  applyBackground(null);
-});
-document.getElementById('bgImageInput').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (file.size > 2 * 1024 * 1024) {
-    window.alert('画像サイズが大きすぎます(2MB以下にしてください)。');
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => saveBackground({ type: 'image', value: reader.result });
-  reader.readAsDataURL(file);
-});
-renderSwatches();
-loadBackground();
 
 // ---- お気に入り(この端末だけのローカル保存) ----
 const FAV_KEY = 'library-app-favs';
@@ -190,119 +149,33 @@ document.getElementById('showRankingBtn').addEventListener('click', () => {
   loadBooks();
 });
 
-// ---- 本ガチャ(1日1回) ----
-const GACHA_KEY = 'library-app-gacha-history';
-const GACHA_TODAY_KEY = 'library-app-gacha-today';
-const FORTUNES = [
-  { label: '大吉', weight: 5 },
-  { label: '吉', weight: 20 },
-  { label: '中吉', weight: 25 },
-  { label: '小吉', weight: 25 },
-  { label: '末吉', weight: 20 },
-  { label: '凶(でも良書)', weight: 5 },
-];
-function pickFortune() {
-  const total = FORTUNES.reduce((s, f) => s + f.weight, 0);
-  let r = Math.random() * total;
-  for (const f of FORTUNES) {
-    if (r < f.weight) return f.label;
-    r -= f.weight;
-  }
-  return FORTUNES[0].label;
-}
-function todayStr2() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function getTodayGacha() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(GACHA_TODAY_KEY) || 'null');
-    if (raw && raw.date === todayStr2()) return raw;
-  } catch (e) {}
-  return null;
-}
-function saveTodayGacha(book, fortune) {
-  const record = { date: todayStr2(), book, fortune };
-  localStorage.setItem(GACHA_TODAY_KEY, JSON.stringify(record));
-  try {
-    const history = JSON.parse(localStorage.getItem(GACHA_KEY) || '[]');
-    history.push({ id: book.id, title: book.title, author: book.author, ndc: book.ndc, drawnAt: new Date().toISOString() });
-    localStorage.setItem(GACHA_KEY, JSON.stringify(history));
-  } catch (e) {}
-}
-function renderGachaResult(book, fortune, alreadyDrawn) {
-  const modal = document.getElementById('gachaModal');
-  modal.innerHTML = `
-    <div class="gacha-fortune">${fortune}</div>
-    <div style="font-size:13px;color:#8A7B5C;">${alreadyDrawn ? '今日引いた本です' : '今日のあなたに引き当てられた本'}</div>
-    <div class="gacha-book-title">${escapeHtml(String(book.title || ''))}</div>
-    <div class="gacha-book-meta">${escapeHtml(String(book.author || ''))}${book.ndc ? ` ・ ${escapeHtml(String(book.ndc))}` : ''}</div>
-    ${alreadyDrawn ? '<div style="font-size:12px;color:#8A7B5C;margin-top:6px;">本ガチャは1日1回です。また明日引けます。</div>' : ''}
-    <button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>
-  `;
-  document.getElementById('gachaCloseBtn').addEventListener('click', () => {
-    document.getElementById('gachaOverlay').classList.remove('open');
-  });
-}
-
-document.getElementById('gachaBtn').addEventListener('click', async () => {
+// ---- 今日のラッキー本 ----
+document.getElementById('luckyBtn').addEventListener('click', async () => {
   const overlay = document.getElementById('gachaOverlay');
   const modal = document.getElementById('gachaModal');
   overlay.classList.add('open');
-
-  const existing = getTodayGacha();
-  if (existing) {
-    renderGachaResult(existing.book, existing.fortune, true);
-    return;
-  }
-
-  modal.innerHTML = `<div class="gacha-shuffling">🎴 シャッフル中…</div>`;
+  modal.innerHTML = `<div class="gacha-shuffling">🍀 探しています…</div>`;
   try {
-    const res = await fetch(`${API_URL}?gacha=1&r=${Date.now()}`, { cache: 'no-store' });
+    const res = await fetch(`${API_URL}?today=1`, { cache: 'no-store' });
     const book = await res.json();
-    await new Promise((r) => setTimeout(r, 600));
     if (!book || !book.id) {
       modal.innerHTML = `<div class="gacha-shuffling">本が見つかりませんでした。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
-      document.getElementById('gachaCloseBtn').addEventListener('click', () => overlay.classList.remove('open'));
-      return;
+    } else {
+      modal.innerHTML = `
+        <div class="gacha-fortune">🍀 今日のラッキー本はこれ！</div>
+        <div class="gacha-book-title">${escapeHtml(String(book.title || ''))}</div>
+        <div class="gacha-book-meta">${escapeHtml(String(book.author || ''))}${book.ndc ? ` ・ ${escapeHtml(String(book.ndc))}` : ''}</div>
+        <div style="font-size:12px;color:#8A7B5C;margin-top:6px;">今日はみんな同じ本が表示されます。また明日更新されます。</div>
+        <button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>
+      `;
     }
-    const fortune = pickFortune();
-    saveTodayGacha(book, fortune);
-    renderGachaResult(book, fortune, false);
   } catch (e) {
     modal.innerHTML = `<div class="gacha-shuffling">通信に失敗しました。</div><button class="gacha-close-btn" id="gachaCloseBtn">閉じる</button>`;
-    document.getElementById('gachaCloseBtn').addEventListener('click', () => overlay.classList.remove('open'));
   }
-});
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-function showError(msg) {
-  const el = document.getElementById('saveError');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-function hideError() {
-  document.getElementById('saveError').style.display = 'none';
-}
-function askPin() {
-  if (sessionPin) return sessionPin;
-  const p = window.prompt('合言葉(PIN)を入力してください');
-  sessionPin = p;
-  return p;
-}
-async function callApi(payload) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-    cache: 'no-store',
+  document.getElementById('gachaCloseBtn').addEventListener('click', () => {
+    overlay.classList.remove('open');
   });
-  return res.json();
-}
+});
 
 // ---- お知らせ ----
 async function loadAnnouncements() {
@@ -339,6 +212,8 @@ function renderAnnouncements(list) {
   });
 }
 document.getElementById('openAnnounceFormBtn').addEventListener('click', () => {
+  const pin = askPin();
+  if (!pin) return;
   document.getElementById('announceForm').classList.add('open');
 });
 document.getElementById('closeAnnounceFormBtn').addEventListener('click', () => {
@@ -350,8 +225,7 @@ document.getElementById('postAnnounceBtn').addEventListener('click', async () =>
     window.alert('お知らせの内容を入力してください。');
     return;
   }
-  const pin = askPin();
-  if (!pin) return;
+  const pin = sessionPin;
   try {
     const result = await callApi({ action: 'addAnnouncement', text, pin });
     if (result && result.error === 'invalid_pin') {
@@ -375,8 +249,7 @@ function renderNdcGrid() {
   NDC.forEach((c) => {
     const btn = document.createElement('button');
     btn.className = 'ndc-btn' + (mode === 'category' && activeCat === c.n ? ' active' : '');
-    const countText = ndcCounts && typeof ndcCounts[c.n] === 'number' ? `(${ndcCounts[c.n]}冊)` : '';
-    btn.innerHTML = `<span class="emoji">${c.emoji}</span><span><span class="num">${c.n}類</span><span class="label">${c.label} ${countText}</span></span>`;
+    btn.innerHTML = `<span class="emoji">${c.emoji}</span><span><span class="num">${c.n}類</span><span class="label">${c.label}</span></span>`;
     btn.addEventListener('click', () => {
       mode = 'category';
       activeCat = c.n;
@@ -384,16 +257,6 @@ function renderNdcGrid() {
     });
     grid.appendChild(btn);
   });
-}
-
-async function loadNdcCounts() {
-  try {
-    const res = await fetch(`${API_URL}?counts=1`, { cache: 'no-store' });
-    ndcCounts = await res.json();
-    if (mode === 'home') renderNdcGrid();
-  } catch (e) {
-    // 冊数の取得に失敗しても、通常のブラウズには影響させない
-  }
 }
 
 // ---- 本の検索・一覧 ----
@@ -626,4 +489,3 @@ if ('serviceWorker' in navigator) {
 
 loadAnnouncements();
 loadBooks();
-loadNdcCounts();
